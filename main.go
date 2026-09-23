@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"web-crawler/extractor"
 )
 
 func check(err error) {
@@ -14,11 +14,13 @@ func check(err error) {
 
 func main() {
 	client := &http.Client{}
-	request, err := http.NewRequest("GET", "https://books.toscrape.com/", nil)
+	URL := "https://books.toscrape.com/"
+	request, err := http.NewRequest("GET", URL, nil)
 	check(err)
 	response, err := client.Do(request)
 	check(err)
-	response_body, err := io.ReadAll(response.Body)
+	defer response.Body.Close()
+	links, err := extractor.Extract_links(response.Body)
 	check(err)
-	fmt.Println(string(response_body))
+	fmt.Println(links[10])
 }
