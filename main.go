@@ -1,26 +1,22 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"net/http"
-	"web-crawler/extractor"
+	"os"
+	"web-crawler/crawler"
 )
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func main() {
-	client := &http.Client{}
-	URL := "https://books.toscrape.com/"
-	request, err := http.NewRequest("GET", URL, nil)
-	check(err)
-	response, err := client.Do(request)
-	check(err)
-	defer response.Body.Close()
-	links, err := extractor.Extract_links(response.Body)
-	check(err)
-	fmt.Println(links[10])
+	depth := flag.Int("depth", 0, "max crawl depth (0 = unlimited)")
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: crawler [--depth N] <url>")
+		os.Exit(1)
+	}
+
+	url := flag.Arg(0)
+	pages := crawler.Crawl(url, crawler.Options{MaxDepth: *depth})
+	fmt.Println("total pages crawled:", len(pages))
 }

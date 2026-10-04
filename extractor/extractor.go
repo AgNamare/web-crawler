@@ -2,34 +2,47 @@ package extractor
 
 import (
 	"io"
+	"net/url"
 
 	"golang.org/x/net/html"
 )
 
-func Extract_links(html_body io.Reader) (links []string, err error) {
-	var extracted_links []string
+type LinkResult struct {
+	Link string
+	Err  error
+}
+
+func Extract_links(base string, html_body io.Reader) <-chan LinkResult {
+	ch := make(chan LinkResult)
 	tokenizer := html.NewTokenizer(html_body)
-	for {
-		token_type := tokenizer.Next()
-		if token_type == html.ErrorToken {
-			if tokenizer.Err() == io.EOF {
-				break
-			} else {
-				return extracted_links, tokenizer.Err()
+	baseURL, _ := url.Parse(base)
+
+	go func() {
+		defer close(ch)
+		for {
+			tt := tokenizer.Next()
+			if tt == html.ErrorToken {
+				ch <- LinkResult{Err: tokenizer.Err()}
+				return
 			}
-		}
-		token := tokenizer.Token()
-		data := token.Data
-		if token_type == html.StartTagToken {
-			if data == "a" {
-				attributes := token.Attr
-				for _, attr := range attributes {
-					if attr.Key == "href" {
-						extracted_links = append(extracted_links, attr.Val)
+			if tt == html.StartTagToken {
+				t := tokenizer.Token()
+				if t.Data == "a" {
+					for _, attr := range t.Attr {
+						if attr.Key == "href" {
+							link, err := url.Parse(attr.Val)
+							if err != nil {
+								continue
+							}
+							resolved := baseURL.ResolveReference(link)
+							if resolved.Scheme == "http" || resolved.Scheme == "https" {
+								ch <- LinkResult{Link: resolved.String()}
+							}
+						}
 					}
 				}
 			}
 		}
-	}
-	return extracted_links, nil
+	}()
+	return ch
 }
